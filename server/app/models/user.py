@@ -2,7 +2,7 @@ from app.models import db
 from datetime import datetime
 
 class User(db.Document):
-    meta = {"collection" : "users"}
+    meta = {"collection":"users"}
     username = db.StringField(required=True,unique=True)
     name = db.StringField()
     email = db.StringField()
