@@ -8,5 +8,6 @@ class User(db.Document):
     email = db.StringField()
     password = db.StringField(required=True)
     profile = db.StringField()
+    last_online = db.DateTimeField()
     created_at = db.DateTimeField(default=datetime.now())
     updated_at = db.DateTimeField(default=datetime.now())

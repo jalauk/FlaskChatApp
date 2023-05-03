@@ -6,6 +6,8 @@ from app.models.chat import Chat
 from app.models.refresh_token import RefreshToken
 from app.utils.helper import httpResponse
 from app.utils.helper import generateAccessToken,generateRefreshToken
+from app.models.message import Message
+from app.models import r
 
 def signup(username,email,password):
     user = User.objects(username=username)
@@ -97,9 +99,14 @@ def getAllChats(user_id):
     for chat in chats:
         current_chat = {}
         current_chat["room_id"] = chat.room_id
+        
         for participant in chat.participants:
             if user_id != str(participant.id):
+                message = Message.objects(chat_id=chat.id,sender=participant.id).order_by("-created_at").first()
+                current_chat["message"] = message.text if message else None
                 current_chat["_id"] = {"$oid" : str(participant.id)}
                 current_chat["username"] = participant.username
+                current_chat["last_online"] = (participant.last_online).strftime("%H:%M") if participant.last_online else None
+                # current_chat["online"] = True if str(participant.id) in ONLINE_USER else False
         chat_list.append(current_chat)
     return chat_list

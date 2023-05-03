@@ -10,17 +10,16 @@ from app.models.user import User
 from app.models.message import Message
 from flask_cors import CORS
 from flask_socketio import SocketIO,join_room,leave_room
-from redis import Redis
 from app.utils.helper import httpResponse
 from app.exceptions.accessDeniedException import AccessDeniedException
 from app.exceptions.badRequestException import BadRequestException
 from app.exceptions.unauthorizedException import UnauthorizedException
 from app.exceptions.unprocessableEntityException import UnprocessableEntityException
+from datetime import datetime
+from app.models import r
 
 app = Flask(__name__)
 CORS(app, support_credentials=True)
-
-redis_obj = Redis(host='localhost', port=6379, decode_responses=True)
 
 if os.environ.get("APP_ENV") == "dev":
     app.config.from_object(config.DevelopmentConfig)
@@ -63,16 +62,14 @@ def err_500(e):
 
 socketio = SocketIO(app,cors_allowed_origins="*")
 
-ONLINE_USER = {}
-
 @socketio.on("connect")
 def connect():
     print("connect")
 
 @socketio.on("add-user")
 def addUser(user_id):
-    ONLINE_USER[user_id] = False
-
+    r.set(user_id,request.sid)
+    
 @socketio.on("create-room")
 def createRoom(data):
     room_id = str(uuid4())
@@ -92,9 +89,9 @@ def joinRoom(data):
 def sendMessage(data):
     chat_id = Chat.objects(room_id=data["room_id"]).first().id
     try:
-        message_obj = Message(chat_id=str(chat_id),sender=data["from"],text=data["message"])
+        message_obj = Message(chat_id=str(chat_id),sender=data["from"],text=data["message"],created_at=datetime.now())
         message_obj.save()
-        socketio.emit("receive-message",{"message" : data["message"],"from" : data["from"]},to=data["room_id"])
+        socketio.emit("receive-message",{"message" : data["message"],"from" : data["from"],"time":str(datetime.now().strftime("%H:%M:%S"))},to=data["room_id"])
     except Exception as e:
         raise e
     return data
@@ -105,7 +102,21 @@ def isTyping(data):
 
 @socketio.on("leave-room")
 def leaveRoom(data):
-    print(data)
+    leave_room(data["room_id"])
+    # return ONLINE_USER
+
+@socketio.on("disconnect")
+def disconnectEvent():
+    # for key, value in ONLINE_USER.items():
+    #     if request.sid == value:
+    #         user_id = key
+
+    # del ONLINE_USER[user_id]
+
+    try:
+        User.objects(id=user_id).update_one(set__last_online=datetime.now())
+    except Exception as e:
+        print(e)
 
 if __name__ == "__main__":
     socketio.run(app)
